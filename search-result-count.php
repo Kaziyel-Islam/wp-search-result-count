@@ -1,3 +1,4 @@
+<?php 
 add_action('wp_footer', function() {
     // Run only on frontend search result pages (not admin, not AJAX)
     if (!is_admin() && is_search()) {
