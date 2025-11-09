@@ -104,5 +104,93 @@ add_action('wp_footer', function() {
 });
 
 
+// keyword count also 
+
+add_action('wp_footer', function() {
+    // Only run on frontend
+    if (is_admin() || wp_doing_ajax()) return;
+
+    // Check if any search field is used
+    $s   = !empty($_GET['s']) ? sanitize_text_field($_GET['s']) : '';
+    $m   = !empty($_GET['m']) ? sanitize_text_field($_GET['m']) : '';
+    $y   = !empty($_GET['y']) ? sanitize_text_field($_GET['y']) : '';
+    $vol = !empty($_GET['vol']) ? sanitize_text_field($_GET['vol']) : '';
+
+    if ($s || $m || $y || $vol) {
+
+        // Make sure the theme function exists
+        if (function_exists('hasvit_get_sContent')) {
+            $custom_query = hasvit_get_sContent();
+            $result_count = isset($custom_query->found_posts) ? (int)$custom_query->found_posts : 0;
+        } else {
+            $result_count = 0;
+            $custom_query = null;
+        }
+
+        // 🔍 Count keyword occurrences if keyword is used
+        $keyword_total_count = 0;
+        $posts_with_keyword  = 0;
+
+        if ($s && $custom_query && !empty($custom_query->posts)) {
+            foreach ($custom_query->posts as $post) {
+                $content = strip_tags($post->post_content);
+                $count = substr_count(strtolower($content), strtolower($s));
+                if ($count > 0) {
+                    $keyword_total_count += $count;
+                    $posts_with_keyword++;
+                }
+            }
+        }
+
+        // Build search summary
+        $parts = [];
+        if ($s)   $parts[] = 'Keyword: “' . esc_html($s) . '”';
+        if ($m)   $parts[] = 'Month: ' . esc_html($m);
+        if ($y)   $parts[] = 'Year: ' . esc_html($y);
+        if ($vol) $parts[] = 'Volume: ' . esc_html($vol);
+        $search_summary = implode(' | ', $parts);
+
+        // Build message
+        if ($result_count > 0) {
+            $message = sprintf(
+                '<div class="search-count-message">%s — %d %s found.',
+                $search_summary,
+                $result_count,
+                _n('result', 'results', $result_count, 'hasvit')
+            );
+
+            // Add keyword count info if available
+            if ($keyword_total_count > 0) {
+                $message .= sprintf(
+                    ' The keyword “%s” appears <strong>%d</strong> times',
+                    esc_html($s),
+                    $keyword_total_count,
+                    $posts_with_keyword
+                );
+            }
+
+            $message .= '</div>';
+        } else {
+            $message = sprintf(
+                '<div class="search-count-message"><strong>%s</strong> — No results found.</div>',
+                $search_summary
+            );
+        }
+
+        // Output via JS
+        ?>
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const targetDiv = document.querySelector('.has-content-section.documents-list-section.st2.h-search');
+            if (targetDiv) {
+                const wrapper = document.createElement('div');
+                wrapper.innerHTML = <?php echo json_encode($message); ?>;
+                targetDiv.prepend(wrapper.firstChild);
+            }
+        });
+        </script>
+        <?php
+    }
+});
 
 
